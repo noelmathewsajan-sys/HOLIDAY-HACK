@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#080b11">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HolidayHacker">
+  <meta name="description" content="Legally hack your calendar to get the longest consecutive breaks with the fewest possible leaves.">
+  
+  <!-- OpenGraph / Social -->
+  <meta property="og:title" content="🏖️ Holiday Hacker — Calendar Optimization App">
+  <meta property="og:description" content="Legally hack your calendar for maximum consecutive breaks using minimum leaves. Works on Mobile & PC!">
+  <meta property="og:type" content="website">
+  
+  <title>Holiday Hacker — Desktop & Mobile PWA</title>
+  
+  <!-- Favicon & PWA Manifest -->
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-badge">
+          <img src="icons/icon.svg" alt="Holiday Hacker Logo" class="app-logo">
+          <div class="logo-text">
+            <h1 class="app-title">Holiday<span>Hacker</span></h1>
+            <span class="app-tagline">Work Smarter. Holiday Longer.</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="header-right">
+        <!-- Leave balance widget -->
+        <div class="leave-counter-widget" id="leaveCounterWidget" title="Click to adjust leave balance">
+          <span class="counter-label">Available Leaves:</span>
+          <span class="counter-val" id="headerLeaveCount">10</span>
+          <span class="counter-total">/ <span id="headerTotalLeaves">10</span></span>
+        </div>
+        
+        <!-- Install App Button (hidden until PWA event or for mobile prompt) -->
+        <button id="installAppBtn" class="btn btn-neon install-btn" style="display: none;">
+          <span class="btn-icon">📲</span>
+          <span class="btn-text">Install App</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Desktop Navigation Bar -->
+    <nav class="desktop-nav">
+      <button class="nav-tab active" data-tab="quick-hacks">
+        <span class="tab-icon">⚡</span> Quick Hacks
+      </button>
+      <button class="nav-tab" data-tab="calendar">
+        <span class="tab-icon">📅</span> Calendar
+      </button>
+      <button class="nav-tab" data-tab="range-explorer">
+        <span class="tab-icon">🔍</span> Range Explorer
+      </button>
+      <button class="nav-tab" data-tab="my-leaves">
+        <span class="tab-icon">🏖️</span> My Leaves & Plans
+      </button>
+      <button class="nav-tab" data-tab="hacker-stats">
+        <span class="tab-icon">📊</span> Uselessness Meter
+      </button>
+    </nav>
+
+    <!-- Main Content Views -->
+    <main class="main-content">
+      
+      <!-- TAB 1: QUICK HACKS -->
+      <section id="tab-quick-hacks" class="tab-view active">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">⚡ Instant Quick Hacks</h2>
+            <p class="view-desc">Highest efficiency holiday combos found for 2026. Minimal leaves, maximum freedom.</p>
+          </div>
+          <div class="budget-filter-group">
+            <span class="filter-label">Leave Budget:</span>
+            <button class="filter-btn active" data-budget="all">All</button>
+            <button class="filter-btn" data-budget="1">1 Leave</button>
+            <button class="filter-btn" data-budget="2">2 Leaves</button>
+            <button class="filter-btn" data-budget="3">3 Leaves</button>
+          </div>
+        </div>
+
+        <div id="quickHacksList" class="hacks-grid">
+          <!-- Dynamically populated via app.js -->
+        </div>
+      </section>
+
+      <!-- TAB 2: INTERACTIVE CALENDAR -->
+      <section id="tab-calendar" class="tab-view">
+        <div class="view-header calendar-header">
+          <div>
+            <h2 class="view-title">📅 Interactive Calendar Grid</h2>
+            <p class="view-desc">Click any working day to mark or unmark your planned leaves.</p>
+          </div>
+          <div class="calendar-controls">
+            <button id="prevMonthBtn" class="btn btn-secondary btn-icon-only">◀</button>
+            <span id="currentMonthYearLabel" class="current-month-label">January 2026</span>
+            <button id="nextMonthBtn" class="btn btn-secondary btn-icon-only">▶</button>
+            <button id="todayBtn" class="btn btn-outline btn-small">Today</button>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="calendar-legend">
+          <div class="legend-item"><span class="legend-badge badge-work"></span> Working Day</div>
+          <div class="legend-item"><span class="legend-badge badge-weekend"></span> Weekend</div>
+          <div class="legend-item"><span class="legend-badge badge-holiday"></span> Public Holiday</div>
+          <div class="legend-item"><span class="legend-badge badge-leave"></span> Your Leave</div>
+        </div>
+
+        <!-- Month Grid -->
+        <div class="calendar-container">
+          <div class="weekdays-grid">
+            <span>Sun</span>
+            <span>Mon</span>
+            <span>Tue</span>
+            <span>Wed</span>
+            <span>Thu</span>
+            <span>Fri</span>
+            <span>Sat</span>
+          </div>
+          <div id="calendarDaysGrid" class="days-grid">
+            <!-- Days rendered dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: RANGE EXPLORER -->
+      <section id="tab-range-explorer" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">🔍 Custom Period Explorer</h2>
+            <p class="view-desc">Select any custom date range to uncover the best holiday strategies.</p>
+          </div>
+        </div>
+
+        <div class="explorer-card">
+          <div class="explorer-form">
+            <div class="form-group">
+              <label for="rangeStartDate">Start Date</label>
+              <input type="date" id="rangeStartDate" class="form-input" value="2026-01-01">
+            </div>
+            <div class="form-group">
+              <label for="rangeEndDate">End Date</label>
+              <input type="date" id="rangeEndDate" class="form-input" value="2026-12-31">
+            </div>
+            <div class="form-group">
+              <label for="rangeMaxLeaves">Max Leaves to Use: <span id="maxLeavesDisplay" class="text-cyan">2</span></label>
+              <input type="range" id="rangeMaxLeaves" min="1" max="5" value="2" class="form-slider">
+            </div>
+            <div class="form-group form-actions">
+              <button id="runExplorerBtn" class="btn btn-primary btn-block">🚀 Calculate Best Hacks</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="explorerResults" class="hacks-grid" style="margin-top: 24px;">
+          <!-- Results rendered dynamically -->
+        </div>
+      </section>
+
+      <!-- TAB 4: MY LEAVES & PLANS -->
+      <section id="tab-my-leaves" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">🏖️ My Leaves & Saved Plans</h2>
+            <p class="view-desc">Manage your leave balance and access your saved calendar hacks.</p>
+          </div>
+          <button id="resetLeavesBtn" class="btn btn-outline btn-small">Reset to Defaults</button>
+        </div>
+
+        <div class="two-col-grid">
+          <!-- Left: Booked Leaves -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <h3>🌴 Booked Leaves (<span id="bookedCountBadge">0</span>)</h3>
+              <button id="addManualLeaveBtn" class="btn btn-neon btn-small">+ Book Date</button>
+            </div>
+            <div id="bookedLeavesList" class="items-list">
+              <!-- Booked leaves listed here -->
+            </div>
+          </div>
+
+          <!-- Right: Saved Plans -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <h3>💾 Saved Holiday Plans (<span id="savedPlansCountBadge">0</span>)</h3>
+            </div>
+            <div id="savedPlansList" class="items-list">
+              <!-- Saved plans listed here -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: USELESSNESS METER -->
+      <section id="tab-hacker-stats" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">📊 Uselessness & Productivity Meter</h2>
+            <p class="view-desc">A totally scientific analysis of your work-avoidance prowess.</p>
+          </div>
+        </div>
+
+        <div class="stats-container">
+          <div class="rank-card">
+            <span class="rank-subtitle">Current Hacker Status</span>
+            <div class="rank-title" id="hackerRankTitle">🧙 Calendar Wizard</div>
+            <p class="rank-quote" id="hackerHumorQuote">"Congratulations! You legally hacked your calendar. 😎"</p>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-header">
+                <span>Work Avoidance</span>
+                <span id="workAvoidancePercent" class="metric-val text-cyan">85%</span>
+              </div>
+              <div class="progress-track">
+                <div id="workAvoidanceBar" class="progress-fill fill-cyan" style="width: 85%;"></div>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span>Leave Efficiency</span>
+                <span id="leaveEfficiencyPercent" class="metric-val text-green">90%</span>
+              </div>
+              <div class="progress-track">
+                <div id="leaveEfficiencyBar" class="progress-fill fill-green" style="width: 90%;"></div>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span>Productivity Index</span>
+                <span id="productivityPercent" class="metric-val text-pink">15%</span>
+              </div>
+              <div class="progress-track">
+                <div id="productivityBar" class="progress-fill fill-pink" style="width: 15%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Mobile Bottom Navigation Dock -->
+    <nav class="mobile-nav">
+      <button class="mobile-tab active" data-tab="quick-hacks">
+        <span class="mobile-icon">⚡</span>
+        <span class="mobile-label">Hacks</span>
+      </button>
+      <button class="mobile-tab" data-tab="calendar">
+        <span class="mobile-icon">📅</span>
+        <span class="mobile-label">Calendar</span>
+      </button>
+      <button class="mobile-tab" data-tab="range-explorer">
+        <span class="mobile-icon">🔍</span>
+        <span class="mobile-label">Explorer</span>
+      </button>
+      <button class="mobile-tab" data-tab="my-leaves">
+        <span class="mobile-icon">🏖️</span>
+        <span class="mobile-label">Leaves</span>
+      </button>
+      <button class="mobile-tab" data-tab="hacker-stats">
+        <span class="mobile-icon">📊</span>
+        <span class="mobile-label">Stats</span>
+      </button>
+    </nav>
+
+    <!-- Strategy Details Modal -->
+    <div id="strategyModal" class="modal-backdrop" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">Holiday Strategy Breakdown</h3>
+          <button id="closeModalBtn" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+          <!-- Injected dynamically -->
+        </div>
+        <div class="modal-footer" id="modalFooter">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast"></div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
