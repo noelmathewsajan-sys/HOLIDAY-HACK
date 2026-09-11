@@ -55,66 +55,109 @@ class HolidayOptimizer:
             return []
 
         free = [day.is_day_off() for day in base_cal]
-        baseline_consecutive, (base_start, base_end) = self._longest_run_with_range(free)
-
         strategies: List[Strategy] = []
+        seen_ranges = set()
 
-        # Iterate over all budgets from 1 to max_new_leaves
+        # 1. Zero-leave baseline opportunities (any long weekend or holiday run >= 3 days)
+        i = 0
+        while i < n:
+            if free[i]:
+                j = i
+                while j < n and free[j]:
+                    j += 1
+                length = j - i
+                if length >= 3:
+                    seq = [CalendarDay(date=base_cal[k].date, status=base_cal[k].status, label=base_cal[k].label) for k in range(i, j)]
+                    key = (base_cal[i].date, base_cal[j-1].date)
+                    if key not in seen_ranges:
+                        seen_ranges.add(key)
+                        strategies.append(Strategy(
+                            start_date=base_cal[i].date,
+                            end_date=base_cal[j-1].date,
+                            total_days=length,
+                            leaves_needed=0,
+                            leave_dates=[],
+                            sequence=seq,
+                            efficiency=float(length)
+                        ))
+                i = j
+            else:
+                i += 1
+
+        # 2. Comprehensive search for all high-efficiency windows around holidays
+        for budget in range(1, max_new_leaves + 1):
+            for left in range(n):
+                work_count = 0
+                for right in range(left, n):
+                    if not free[right]:
+                        work_count += 1
+                    if work_count > budget:
+                        break
+
+                    # Window is maximal if it cannot be extended left or right without adding more leaves
+                    is_max_left = (left == 0 or not free[left - 1])
+                    is_max_right = (right == n - 1 or not free[right + 1])
+
+                    if is_max_left and is_max_right and work_count > 0:
+                        has_holiday = any(base_cal[k].status == DayStatus.PUBLIC_HOLIDAY for k in range(left, right + 1))
+                        total_days = right - left + 1
+                        if has_holiday and total_days >= budget + 2:
+                            rec_dates = [base_cal[k].date for k in range(left, right + 1) if not free[k]]
+                            actual_leaves = len(rec_dates)
+                            key = (base_cal[left].date, base_cal[right].date)
+                            if key not in seen_ranges and actual_leaves > 0:
+                                seen_ranges.add(key)
+                                seq = []
+                                for k in range(left, right + 1):
+                                    orig = base_cal[k]
+                                    if not free[k]:
+                                        seq.append(CalendarDay(date=orig.date, status=DayStatus.RECOMMENDED_LEAVE, label="Recommended Leave"))
+                                    else:
+                                        seq.append(CalendarDay(date=orig.date, status=orig.status, label=orig.label))
+
+                                eff = total_days / actual_leaves
+                                strategies.append(Strategy(
+                                    start_date=base_cal[left].date,
+                                    end_date=base_cal[right].date,
+                                    total_days=total_days,
+                                    leaves_needed=actual_leaves,
+                                    leave_dates=rec_dates,
+                                    sequence=seq,
+                                    efficiency=eff
+                                ))
+
+        # 3. Also include the global best allocation for each budget if not already present
         for budget in range(1, max_new_leaves + 1):
             best_arr, win_start, win_end, win_len = self._find_best_allocation(free, n, budget)
             if win_len > 0:
-                recommended = [base_cal[i].date for i in range(n) if best_arr[i] and not free[i]]
-                actual_leaves = len(recommended)
-                efficiency = float(win_len) if actual_leaves == 0 else (win_len / actual_leaves)
+                key = (base_cal[win_start].date, base_cal[win_end].date)
+                if key not in seen_ranges:
+                    recommended = [base_cal[i].date for i in range(n) if best_arr[i] and not free[i]]
+                    actual_leaves = len(recommended)
+                    if actual_leaves > 0:
+                        seen_ranges.add(key)
+                        sequence = []
+                        for i in range(win_start, win_end + 1):
+                            orig = base_cal[i]
+                            cd = CalendarDay(date=orig.date, status=orig.status, label=orig.label)
+                            if not free[i] and best_arr[i]:
+                                cd.status = DayStatus.RECOMMENDED_LEAVE
+                                cd.label = "Recommended Leave"
+                            sequence.append(cd)
 
-                sequence: List[CalendarDay] = []
-                for i in range(win_start, win_end + 1):
-                    orig = base_cal[i]
-                    cd = CalendarDay(date=orig.date, status=orig.status, label=orig.label)
-                    if not free[i] and best_arr[i]:
-                        cd.status = DayStatus.RECOMMENDED_LEAVE
-                        cd.label = "Recommended Leave"
-                    sequence.append(cd)
+                        strategies.append(Strategy(
+                            start_date=base_cal[win_start].date,
+                            end_date=base_cal[win_end].date,
+                            total_days=win_len,
+                            leaves_needed=actual_leaves,
+                            leave_dates=recommended,
+                            sequence=sequence,
+                            efficiency=win_len / actual_leaves
+                        ))
 
-                strategy = Strategy(
-                    start_date=base_cal[win_start].date,
-                    end_date=base_cal[win_end].date,
-                    total_days=win_len,
-                    leaves_needed=actual_leaves,
-                    leave_dates=recommended,
-                    sequence=sequence,
-                    efficiency=efficiency
-                )
-                strategies.append(strategy)
-
-        # Baseline zero-leave strategy
-        if baseline_consecutive > 0:
-            seq = [
-                CalendarDay(date=base_cal[i].date, status=base_cal[i].status, label=base_cal[i].label)
-                for i in range(base_start, base_end + 1)
-            ]
-            strategies.append(Strategy(
-                start_date=base_cal[base_start].date,
-                end_date=base_cal[base_end].date,
-                total_days=baseline_consecutive,
-                leaves_needed=0,
-                leave_dates=[],
-                sequence=seq,
-                efficiency=float(baseline_consecutive)
-            ))
-
-        # Sort by efficiency descending, then consecutive days descending
+        # Sort by efficiency descending, then total days descending
         strategies.sort(key=lambda s: (s.efficiency, s.total_days), reverse=True)
-
-        # Deduplicate: if multiple strategies yield the same consecutive days, keep the one needing fewest leaves
-        deduped: List[Strategy] = []
-        seen_consecutive = set()
-        for s in strategies:
-            if s.total_days not in seen_consecutive:
-                seen_consecutive.add(s.total_days)
-                deduped.append(s)
-
-        return deduped
+        return strategies
 
     def _find_best_allocation(self, free: List[bool], n: int, budget: int):
         best_len = 0

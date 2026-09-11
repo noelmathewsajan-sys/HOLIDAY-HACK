@@ -84,6 +84,26 @@ class HackerView(ctk.CTkFrame):
         ctk.CTkLabel(b_inner, text=today_txt, font=UIConstants.FONT_BODY_BOLD, text_color=UIConstants.SUCCESS).pack(side="left")
         ctk.CTkLabel(b_inner, text=next_h_txt, font=UIConstants.FONT_BODY, text_color=UIConstants.PRIMARY).pack(side="right")
 
+        # Quick Range Presets
+        presets_row = ctk.CTkFrame(self, fg_color="transparent")
+        presets_row.pack(fill="x", pady=(0, 8))
+        ctk.CTkLabel(presets_row, text="⚡ Quick Range Presets:", font=UIConstants.FONT_SMALL, text_color=UIConstants.TEXT_SECONDARY).pack(side="left", padx=(4, 8))
+        ctk.CTkButton(
+            presets_row, text=f"📍 This Month ({self.today.strftime('%b %Y')})", width=140, height=28,
+            fg_color=UIConstants.CARD_BG, hover_color=UIConstants.PRIMARY_HOVER, font=UIConstants.FONT_SMALL,
+            command=self.set_this_month
+        ).pack(side="left", padx=4)
+        ctk.CTkButton(
+            presets_row, text="🚀 Next Month", width=110, height=28,
+            fg_color=UIConstants.CARD_BG, hover_color=UIConstants.PRIMARY_HOVER, font=UIConstants.FONT_SMALL,
+            command=self.set_next_month
+        ).pack(side="left", padx=4)
+        ctk.CTkButton(
+            presets_row, text="🗓️ Next 30 Days", width=110, height=28,
+            fg_color=UIConstants.CARD_BG, hover_color=UIConstants.PRIMARY_HOVER, font=UIConstants.FONT_SMALL,
+            command=self.set_next_30_days
+        ).pack(side="left", padx=4)
+
         # 2. TWO SEPARATE CALENDARS (SIDE BY SIDE)
         calendars_container = ctk.CTkFrame(self, fg_color="transparent")
         calendars_container.pack(fill="x", pady=(0, 12))
@@ -215,6 +235,46 @@ class HackerView(ctk.CTkFrame):
             self.end_cal_year += 1
         else:
             self.end_cal_month += 1
+        self.refresh_end_calendar()
+
+    def set_this_month(self):
+        today = self.today
+        _, last_day = calendar.monthrange(today.year, today.month)
+        self.start_date = today
+        self.start_cal_year = today.year
+        self.start_cal_month = today.month
+        self.end_date = date(today.year, today.month, last_day)
+        self.end_cal_year = today.year
+        self.end_cal_month = today.month
+        self.update_summary_labels()
+        self.refresh_start_calendar()
+        self.refresh_end_calendar()
+
+    def set_next_month(self):
+        today = self.today
+        nm_year = today.year + 1 if today.month == 12 else today.year
+        nm_month = 1 if today.month == 12 else today.month + 1
+        _, last_day = calendar.monthrange(nm_year, nm_month)
+        self.start_date = date(nm_year, nm_month, 1)
+        self.start_cal_year = nm_year
+        self.start_cal_month = nm_month
+        self.end_date = date(nm_year, nm_month, last_day)
+        self.end_cal_year = nm_year
+        self.end_cal_month = nm_month
+        self.update_summary_labels()
+        self.refresh_start_calendar()
+        self.refresh_end_calendar()
+
+    def set_next_30_days(self):
+        today = self.today
+        self.start_date = today
+        self.start_cal_year = today.year
+        self.start_cal_month = today.month
+        self.end_date = today + timedelta(days=30)
+        self.end_cal_year = self.end_date.year
+        self.end_cal_month = self.end_date.month
+        self.update_summary_labels()
+        self.refresh_start_calendar()
         self.refresh_end_calendar()
 
     def select_start_date(self, d):

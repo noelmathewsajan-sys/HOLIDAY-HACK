@@ -73,6 +73,7 @@ const State = {
   bookedLeaves: JSON.parse(localStorage.getItem('hh_booked_leaves') || '[]'),
   savedPlans: JSON.parse(localStorage.getItem('hh_saved_plans') || '[]'),
   currentMonth: new Date(), // Always defaults to TODAY'S real month & year!
+  currentScope: 'month', // 'month' (default), 'next_month', 'quarter', 'year'
   currentBudgetFilter: 'all',
   deferredInstallPrompt: null
 };
@@ -130,58 +131,134 @@ class HolidayOptimizer {
 
     const free = cal.map(d => d.isOff);
     const strategies = [];
+    const seenRanges = new Set();
 
-    // Find best sliding window for each budget
+    // 1. Zero-leave baseline opportunities (long weekends >= 3 days)
+    let i = 0;
+    while (i < n) {
+      if (free[i]) {
+        let j = i;
+        while (j < n && free[j]) j++;
+        const len = j - i;
+        if (len >= 3) {
+          const key = `${cal[i].dateStr}_${cal[j-1].dateStr}`;
+          if (!seenRanges.has(key)) {
+            seenRanges.add(key);
+            const sequence = [];
+            for (let k = i; k < j; k++) {
+              sequence.push({ ...cal[k] });
+            }
+            strategies.push({
+              startDateStr: cal[i].dateStr,
+              endDateStr: cal[j-1].dateStr,
+              totalDays: len,
+              leavesNeeded: 0,
+              leaveDates: [],
+              sequence,
+              efficiency: len
+            });
+          }
+        }
+        i = j;
+      } else {
+        i++;
+      }
+    }
+
+    // 2. Comprehensive candidate search around holidays for each budget
+    for (let budget = 1; budget <= maxNewLeaves; budget++) {
+      for (let left = 0; left < n; left++) {
+        let workCount = 0;
+        for (let right = left; right < n; right++) {
+          if (!free[right]) workCount++;
+          if (workCount > budget) break;
+
+          const isMaxLeft = (left === 0 || !free[left - 1]);
+          const isMaxRight = (right === n - 1 || !free[right + 1]);
+
+          if (isMaxLeft && isMaxRight && workCount > 0) {
+            let hasHoliday = false;
+            for (let k = left; k <= right; k++) {
+              if (cal[k].status === 'holiday') { hasHoliday = true; break; }
+            }
+            const totalDays = right - left + 1;
+            if (hasHoliday && totalDays >= budget + 2) {
+              const key = `${cal[left].dateStr}_${cal[right].dateStr}`;
+              if (!seenRanges.has(key)) {
+                seenRanges.add(key);
+                const recommended = [];
+                const sequence = [];
+                for (let k = left; k <= right; k++) {
+                  const orig = cal[k];
+                  const isRec = !free[k];
+                  if (isRec) recommended.push(orig.dateStr);
+                  sequence.push({
+                    dateStr: orig.dateStr,
+                    date: orig.date,
+                    status: isRec ? 'recommended' : orig.status,
+                    label: isRec ? 'Recommended Leave' : orig.label,
+                    isOff: true
+                  });
+                }
+                const actualLeaves = recommended.length;
+                if (actualLeaves > 0) {
+                  strategies.push({
+                    startDateStr: cal[left].dateStr,
+                    endDateStr: cal[right].dateStr,
+                    totalDays,
+                    leavesNeeded: actualLeaves,
+                    leaveDates: recommended,
+                    sequence,
+                    efficiency: totalDays / actualLeaves
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Fallback to global best allocation for any budget not yet captured
     for (let budget = 1; budget <= maxNewLeaves; budget++) {
       const allocation = this._findBestAllocation(free, n, budget);
       if (allocation.winLen > 0) {
-        const recommended = [];
-        const sequence = [];
-
-        for (let i = allocation.winStart; i <= allocation.winEnd; i++) {
-          const orig = cal[i];
-          const isRec = !free[i] && allocation.bestArr[i];
-          if (isRec) {
-            recommended.push(orig.dateStr);
+        const key = `${cal[allocation.winStart].dateStr}_${cal[allocation.winEnd].dateStr}`;
+        if (!seenRanges.has(key)) {
+          const recommended = [];
+          const sequence = [];
+          for (let k = allocation.winStart; k <= allocation.winEnd; k++) {
+            const orig = cal[k];
+            const isRec = !free[k] && allocation.bestArr[k];
+            if (isRec) recommended.push(orig.dateStr);
+            sequence.push({
+              dateStr: orig.dateStr,
+              date: orig.date,
+              status: isRec ? 'recommended' : orig.status,
+              label: isRec ? 'Recommended Leave' : orig.label,
+              isOff: true
+            });
           }
-          sequence.push({
-            dateStr: orig.dateStr,
-            date: orig.date,
-            status: isRec ? 'recommended' : orig.status,
-            label: isRec ? 'Recommended Leave' : orig.label,
-            isOff: true
-          });
-        }
-
-        const actualLeaves = recommended.length;
-        if (actualLeaves > 0) {
-          const efficiency = allocation.winLen / actualLeaves;
-          strategies.push({
-            startDateStr: cal[allocation.winStart].dateStr,
-            endDateStr: cal[allocation.winEnd].dateStr,
-            totalDays: allocation.winLen,
-            leavesNeeded: actualLeaves,
-            leaveDates: recommended,
-            sequence,
-            efficiency
-          });
+          const actualLeaves = recommended.length;
+          if (actualLeaves > 0) {
+            seenRanges.add(key);
+            strategies.push({
+              startDateStr: cal[allocation.winStart].dateStr,
+              endDateStr: cal[allocation.winEnd].dateStr,
+              totalDays: allocation.winLen,
+              leavesNeeded: actualLeaves,
+              leaveDates: recommended,
+              sequence,
+              efficiency: allocation.winLen / actualLeaves
+            });
+          }
         }
       }
     }
 
     // Sort by efficiency descending, then total days descending
     strategies.sort((a, b) => b.efficiency - a.efficiency || b.totalDays - a.totalDays);
-
-    // Deduplicate by consecutive days
-    const deduped = [];
-    const seen = new Set();
-    for (const s of strategies) {
-      if (!seen.has(s.totalDays)) {
-        seen.add(s.totalDays);
-        deduped.push(s);
-      }
-    }
-    return deduped;
+    return strategies;
   }
 
   _findBestAllocation(free, n, budget) {
@@ -300,7 +377,7 @@ function getEfficiencyBadge(eff) {
   return { label: '🤔 OKAY', color: 'var(--text-muted)' };
 }
 
-// 5. Quick Hacks (Calculated from TODAY onwards for 12 months!)
+// 5. Quick Hacks (Calculated based on selected Scope, DEFAULT: CURRENT MONTH)
 function renderQuickHacks() {
   const container = document.getElementById('quickHacksList');
   container.innerHTML = '';
@@ -308,9 +385,34 @@ function renderQuickHacks() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const start = new Date(today);
-  const end = new Date(today);
-  end.setFullYear(end.getFullYear() + 1); // 1 full year ahead from today!
+  let start = new Date(today);
+  let end = new Date(today);
+  let scopeLabel = '';
+
+  if (State.currentScope === 'month') {
+    // Current Month: From today to the end of the current month
+    end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const mName = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    scopeLabel = `CURRENT MONTH (${mName}) from ${formatPrettyDate(formatDate(start))} to ${formatPrettyDate(formatDate(end))}`;
+  } else if (State.currentScope === 'next_month') {
+    // Next Month: From 1st to last day
+    start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+    const mName = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    scopeLabel = `NEXT MONTH (${mName}) from ${formatPrettyDate(formatDate(start))} to ${formatPrettyDate(formatDate(end))}`;
+  } else if (State.currentScope === 'quarter') {
+    end.setDate(end.getDate() + 90);
+    scopeLabel = `NEXT 3 MONTHS from ${formatPrettyDate(formatDate(start))} to ${formatPrettyDate(formatDate(end))}`;
+  } else {
+    // Full year
+    end.setFullYear(end.getFullYear() + 1);
+    scopeLabel = `FULL YEAR from ${formatPrettyDate(formatDate(start))} to ${formatPrettyDate(formatDate(end))}`;
+  }
+
+  const subtitleEl = document.getElementById('quickHacksSubtitle');
+  if (subtitleEl) {
+    subtitleEl.textContent = `🎯 Focus: ${scopeLabel}. Minimal leaves, maximum freedom.`;
+  }
 
   const allHacks = optimizer.findBestStrategies(start, end, 3, State.bookedLeaves);
 
@@ -319,7 +421,7 @@ function renderQuickHacks() {
     : allHacks.filter(h => h.leavesNeeded === Number(State.currentBudgetFilter));
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="panel-card" style="text-align:center; padding:30px;"><p class="text-muted">No hacks found for this leave budget. Try selecting "All".</p></div>`;
+    container.innerHTML = `<div class="panel-card" style="text-align:center; padding:30px;"><p class="text-muted">No hacks found for this leave budget in the selected timeframe. Try selecting "All".</p></div>`;
     return;
   }
 
@@ -778,10 +880,20 @@ document.addEventListener('DOMContentLoaded', () => {
   updateStats();
   setupPWAInstall();
 
-  // Budget filters
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  // Scope filter buttons (This Month, Next Month, Next 3 Months, Full Year)
+  document.querySelectorAll('.scope-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      State.currentScope = btn.getAttribute('data-scope');
+      renderQuickHacks();
+    });
+  });
+
+  // Budget filter buttons (All, 1, 2, 3)
+  document.querySelectorAll('.budget-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.budget-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       State.currentBudgetFilter = btn.getAttribute('data-budget');
       renderQuickHacks();

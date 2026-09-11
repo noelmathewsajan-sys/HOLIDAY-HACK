@@ -50,3 +50,7 @@ Thumbs.db
 
 # Helper scripts
 push.bat
+
+# Binary archives
+*.zip
+*.exe

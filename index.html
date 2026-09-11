@@ -106,14 +106,23 @@
         <div class="view-header">
           <div>
             <h2 class="view-title">⚡ Instant Quick Hacks</h2>
-            <p class="view-desc">Highest efficiency holiday combos found for 2026. Minimal leaves, maximum freedom.</p>
+            <p class="view-desc" id="quickHacksSubtitle">Real-time holiday strategies for the CURRENT MONTH. Minimal leaves, maximum freedom.</p>
           </div>
-          <div class="budget-filter-group">
-            <span class="filter-label">Leave Budget:</span>
-            <button class="filter-btn active" data-budget="all">All</button>
-            <button class="filter-btn" data-budget="1">1 Leave</button>
-            <button class="filter-btn" data-budget="2">2 Leaves</button>
-            <button class="filter-btn" data-budget="3">3 Leaves</button>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+            <div class="scope-filter-group">
+              <span class="filter-label">📍 Scope:</span>
+              <button class="filter-btn active scope-btn" data-scope="month" id="scopeBtnMonth">📍 This Month</button>
+              <button class="filter-btn scope-btn" data-scope="next_month">🚀 Next Month</button>
+              <button class="filter-btn scope-btn" data-scope="quarter">🗓️ Next 3 Months</button>
+              <button class="filter-btn scope-btn" data-scope="year">🌐 Full Year</button>
+            </div>
+            <div class="budget-filter-group">
+              <span class="filter-label">Leave Budget:</span>
+              <button class="filter-btn active budget-btn" data-budget="all">All</button>
+              <button class="filter-btn budget-btn" data-budget="1">1 Leave</button>
+              <button class="filter-btn budget-btn" data-budget="2">2 Leaves</button>
+              <button class="filter-btn budget-btn" data-budget="3">3 Leaves</button>
+            </div>
           </div>
         </div>
 
