@@ -1,7 +1,13 @@
 # 🏖️ Holiday Hacker
 
+[![GitHub Release](https://img.shields.io/badge/Release-v1.0.0-00f0ff?style=for-the-badge&logo=github)](https://github.com/noelmathewsajan-sys/HOLIDAY-HACK/releases/latest)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![UI](https://img.shields.io/badge/UI-CustomTkinter-blueviolet?style=for-the-badge)](https://github.com/TomSchimansky/CustomTkinter)
+
 Welcome to **Holiday Hacker** — the ultimate productivity-avoidance tool! 
 This application is designed to help you legally hack your calendar. By analyzing public holidays, weekends, and your available leave balance, Holiday Hacker finds the absolute best strategies to take the longest consecutive breaks while using the fewest possible leaves.
+
+📥 **[Download Latest Release (v1.0.0 Windows ZIP)](https://github.com/noelmathewsajan-sys/HOLIDAY-HACK/releases/download/v1.0.0/HolidayHacker-v1.0.0-Windows.zip)**
 
 ---
 
