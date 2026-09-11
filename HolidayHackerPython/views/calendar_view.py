@@ -30,22 +30,56 @@ class CalendarView(ctk.CTkFrame):
     def build_ui(self):
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 20))
+        header.pack(fill="x", pady=(0, 10))
         
-        title = ctk.CTkLabel(header, text="📅 Calendar", font=UIConstants.FONT_HEADING, text_color=UIConstants.TEXT_PRIMARY)
+        title = ctk.CTkLabel(header, text="📅 Calendar", font=UIConstants.FONT_HEADING, text_color=UIConstants.PRIMARY)
         title.pack(side="left")
         
         nav = ctk.CTkFrame(header, fg_color="transparent")
         nav.pack(side="right")
         
-        prev_btn = ctk.CTkButton(nav, text="◀ Prev", width=80, fg_color=UIConstants.CARD_BG, hover_color=UIConstants.SIDEBAR_BG, command=self.prev_month)
-        prev_btn.pack(side="left", padx=5)
+        prev_btn = ctk.CTkButton(nav, text="◀ Prev", width=70, fg_color=UIConstants.CARD_BG, hover_color=UIConstants.SIDEBAR_BG, command=self.prev_month)
+        prev_btn.pack(side="left", padx=4)
         
         self.month_label = ctk.CTkLabel(nav, text="", font=UIConstants.FONT_BODY_BOLD, text_color=UIConstants.TEXT_PRIMARY)
-        self.month_label.pack(side="left", padx=10)
+        self.month_label.pack(side="left", padx=8)
         
-        next_btn = ctk.CTkButton(nav, text="Next ▶", width=80, fg_color=UIConstants.CARD_BG, hover_color=UIConstants.SIDEBAR_BG, command=self.next_month)
-        next_btn.pack(side="left", padx=5)
+        next_btn = ctk.CTkButton(nav, text="Next ▶", width=70, fg_color=UIConstants.CARD_BG, hover_color=UIConstants.SIDEBAR_BG, command=self.next_month)
+        next_btn.pack(side="left", padx=4)
+
+        today_btn = ctk.CTkButton(nav, text="Today", width=60, fg_color=UIConstants.PRIMARY, text_color="#000", hover_color=UIConstants.PRIMARY_HOVER, command=self.go_today)
+        today_btn.pack(side="left", padx=6)
+
+        # Today & Next Holiday Banner
+        today = date.today()
+        all_holidays = self.holiday_service.get_all_holidays()
+        upcoming = [h for h in all_holidays if h.holiday_date >= today]
+        upcoming.sort(key=lambda h: h.holiday_date)
+
+        is_weekend = today.weekday() >= 5
+        today_h = next((h for h in all_holidays if h.holiday_date == today), None)
+        if today_h:
+            t_status = f"🎉 Today is {today_h.holiday_name}!"
+        elif is_weekend:
+            t_status = "🛌 Weekend (Day Off)"
+        else:
+            t_status = "💼 Working Day"
+
+        if upcoming:
+            next_h = upcoming[0]
+            days_left = (next_h.holiday_date - today).days
+            count_txt = "Today! 🎉" if days_left == 0 else ("Tomorrow! 🚀" if days_left == 1 else f"in {days_left} days")
+            next_txt = f"🎉 Next Holiday: {next_h.holiday_name} ({count_txt})"
+        else:
+            next_txt = "No more upcoming holidays recorded this year."
+
+        banner_frame = ctk.CTkFrame(self, fg_color=UIConstants.CARD_BG, corner_radius=8)
+        banner_frame.pack(fill="x", pady=(0, 12))
+        b_inner = ctk.CTkFrame(banner_frame, fg_color="transparent")
+        b_inner.pack(fill="x", padx=14, pady=8)
+
+        ctk.CTkLabel(b_inner, text=f"📅 Today: {today.strftime('%A, %d %B %Y')} • {t_status}", font=UIConstants.FONT_BODY_BOLD, text_color=UIConstants.SUCCESS).pack(side="left")
+        ctk.CTkLabel(b_inner, text=next_txt, font=UIConstants.FONT_BODY, text_color=UIConstants.PRIMARY).pack(side="right")
         
         # Legend
         legend = ctk.CTkFrame(self, fg_color="transparent")
@@ -79,6 +113,12 @@ class CalendarView(ctk.CTkFrame):
             self.current_month -= 1
         self.refresh_grid()
         
+    def go_today(self):
+        today = date.today()
+        self.current_year = today.year
+        self.current_month = today.month
+        self.refresh_grid()
+
     def next_month(self):
         if self.current_month == 12:
             self.current_month = 1
@@ -119,8 +159,11 @@ class CalendarView(ctk.CTkFrame):
         row = 1
         col = start_dow
         
+        today = date.today()
+
         for day in range(1, num_days + 1):
             curr_date = date(self.current_year, self.current_month, day)
+            is_today = (curr_date == today)
             
             color = UIConstants.CAL_WORKING
             if curr_date in self.recommended_dates:
@@ -138,12 +181,17 @@ class CalendarView(ctk.CTkFrame):
                 if self.highlight_range[0] <= curr_date <= self.highlight_range[1]:
                     border_w = 2
                     border_c = UIConstants.SUCCESS
+            elif is_today:
+                border_w = 2
+                border_c = UIConstants.PRIMARY
                 
             cell = ctk.CTkFrame(self.grid_frame, fg_color=color, border_width=border_w, border_color=border_c, corner_radius=8, height=60)
             cell.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
             cell.grid_propagate(False)
             
-            lbl = ctk.CTkLabel(cell, text=str(day), font=UIConstants.FONT_BODY_BOLD, text_color=UIConstants.TEXT_PRIMARY)
+            lbl_txt = f"{day}\nTODAY" if is_today else str(day)
+            lbl_color = UIConstants.PRIMARY if is_today else UIConstants.TEXT_PRIMARY
+            lbl = ctk.CTkLabel(cell, text=lbl_txt, font=UIConstants.FONT_BODY_BOLD, text_color=lbl_color)
             lbl.place(relx=0.5, rely=0.5, anchor="center")
             
             # Click event bindings

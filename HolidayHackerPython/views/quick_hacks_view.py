@@ -22,11 +22,41 @@ class QuickHacksView(ctk.CTkFrame):
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", pady=(0, 15))
 
-        title = ctk.CTkLabel(header, text="⚡ Quick Hacks — Best Deals of the Year", font=UIConstants.FONT_HEADING, text_color=UIConstants.PRIMARY)
+        title = ctk.CTkLabel(header, text="⚡ Quick Hacks — Upcoming Best Holiday Deals", font=UIConstants.FONT_HEADING, text_color=UIConstants.PRIMARY)
         title.pack(anchor="w")
         
-        desc = ctk.CTkLabel(header, text="Automatically calculated top upcoming holiday strategies using 2 leaves or less.", font=UIConstants.FONT_BODY, text_color=UIConstants.TEXT_SECONDARY)
-        desc.pack(anchor="w", pady=(5, 10))
+        today = date.today()
+        all_holidays = self.holiday_service.get_all_holidays()
+        upcoming = [h for h in all_holidays if h.holiday_date >= today]
+        upcoming.sort(key=lambda h: h.holiday_date)
+
+        is_weekend = today.weekday() >= 5
+        today_h = next((h for h in all_holidays if h.holiday_date == today), None)
+        if today_h:
+            t_status = f"🎉 Today is {today_h.holiday_name}!"
+        elif is_weekend:
+            t_status = "🛌 Weekend (Day Off)"
+        else:
+            t_status = "💼 Working Day"
+
+        if upcoming:
+            next_h = upcoming[0]
+            days_left = (next_h.holiday_date - today).days
+            count_txt = "Today! 🎉" if days_left == 0 else ("Tomorrow! 🚀" if days_left == 1 else f"in {days_left} days")
+            next_txt = f"Next Holiday: 🎉 {next_h.holiday_name} on {next_h.holiday_date.strftime('%d %b %Y')} ({count_txt})"
+        else:
+            next_txt = "No more upcoming holidays recorded this year."
+
+        banner_frame = ctk.CTkFrame(header, fg_color=UIConstants.CARD_BG, corner_radius=8)
+        banner_frame.pack(fill="x", pady=(5, 10))
+        b_inner = ctk.CTkFrame(banner_frame, fg_color="transparent")
+        b_inner.pack(fill="x", padx=14, pady=8)
+
+        ctk.CTkLabel(b_inner, text=f"📅 Today: {today.strftime('%A, %d %B %Y')} • {t_status}", font=UIConstants.FONT_BODY_BOLD, text_color=UIConstants.SUCCESS).pack(side="left")
+        ctk.CTkLabel(b_inner, text=next_txt, font=UIConstants.FONT_BODY, text_color=UIConstants.PRIMARY).pack(side="right")
+
+        desc = ctk.CTkLabel(header, text="Automatically calculated upcoming holiday strategies starting from TODAY for the next 12 months (2 leaves or less).", font=UIConstants.FONT_BODY, text_color=UIConstants.TEXT_SECONDARY)
+        desc.pack(anchor="w", pady=(0, 10))
 
         sort_frame = ctk.CTkFrame(header, fg_color="transparent")
         sort_frame.pack(fill="x", pady=(0, 5))
@@ -52,7 +82,7 @@ class QuickHacksView(ctk.CTkFrame):
             
         today = date.today()
         start_date = today
-        end_date = date(today.year, 12, 31)
+        end_date = today + timedelta(days=365)
         
         holidays = self.holiday_service.get_holidays_in_range(start_date, end_date)
         user_leaves = self.leave_service.get_user_leaves_in_range(self.user.id, start_date, end_date)

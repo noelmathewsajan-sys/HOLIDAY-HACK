@@ -2,18 +2,9 @@
  * Holiday Hacker — Progressive Web App Logic & Optimizer Engine
  */
 
-// 1. Core State
-const State = {
-  totalLeaves: 10,
-  bookedLeaves: JSON.parse(localStorage.getItem('hh_booked_leaves') || '[]'),
-  savedPlans: JSON.parse(localStorage.getItem('hh_saved_plans') || '[]'),
-  currentMonth: new Date(2026, 0, 1),
-  currentBudgetFilter: 'all',
-  deferredInstallPrompt: null
-};
-
-// 2. Comprehensive 2026 Public Holidays Dataset
-const PUBLIC_HOLIDAYS_2026 = [
+// 1. Comprehensive 2026 & 2027 Public Holidays Dataset
+const ALL_PUBLIC_HOLIDAYS = [
+  // 2026
   { name: "New Year's Day", date: "2026-01-01", desc: "First day of the year" },
   { name: "Republic Day", date: "2026-01-26", desc: "National Holiday - Republic Day" },
   { name: "Maha Shivratri", date: "2026-02-17", desc: "Festival of Lord Shiva" },
@@ -32,7 +23,20 @@ const PUBLIC_HOLIDAYS_2026 = [
   { name: "Dussehra", date: "2026-10-20", desc: "Victory of Good over Evil" },
   { name: "Diwali / Deepavali", date: "2026-11-08", desc: "Festival of Lights" },
   { name: "Guru Nanak Jayanti", date: "2026-11-24", desc: "Birth of Guru Nanak" },
-  { name: "Christmas Day", date: "2026-12-25", desc: "Christmas Celebration" }
+  { name: "Christmas Day", date: "2026-12-25", desc: "Christmas Celebration" },
+  // 2027
+  { name: "New Year's Day", date: "2027-01-01", desc: "First day of 2027" },
+  { name: "Republic Day", date: "2027-01-26", desc: "Republic Day 2027" },
+  { name: "Maha Shivratri", date: "2027-03-08", desc: "Festival of Lord Shiva 2027" },
+  { name: "Holi", date: "2027-03-23", desc: "Festival of Colors 2027" },
+  { name: "Good Friday", date: "2027-03-26", desc: "Good Friday 2027" },
+  { name: "Eid al-Fitr", date: "2027-04-10", desc: "Islamic Festival 2027" },
+  { name: "May Day", date: "2027-05-01", desc: "Labor Day 2027" },
+  { name: "Independence Day", date: "2027-08-15", desc: "Independence Day 2027" },
+  { name: "Gandhi Jayanti", date: "2027-10-02", desc: "Gandhi Jayanti 2027" },
+  { name: "Dussehra", date: "2027-10-09", desc: "Dussehra 2027" },
+  { name: "Diwali", date: "2027-10-29", desc: "Diwali 2027" },
+  { name: "Christmas Day", date: "2027-12-25", desc: "Christmas 2027" }
 ];
 
 const SUCCESS_QUOTES = [
@@ -63,9 +67,19 @@ function formatPrettyDate(str) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// 3. Holiday Optimizer Algorithm (Ported directly from Python algorithm.py)
+// 2. Core State - Automatically defaults to CURRENT real date
+const State = {
+  totalLeaves: 10,
+  bookedLeaves: JSON.parse(localStorage.getItem('hh_booked_leaves') || '[]'),
+  savedPlans: JSON.parse(localStorage.getItem('hh_saved_plans') || '[]'),
+  currentMonth: new Date(), // Always defaults to TODAY'S real month & year!
+  currentBudgetFilter: 'all',
+  deferredInstallPrompt: null
+};
+
+// 3. Holiday Optimizer Algorithm (Sliding Window Strategy)
 class HolidayOptimizer {
-  constructor(holidays = PUBLIC_HOLIDAYS_2026) {
+  constructor(holidays = ALL_PUBLIC_HOLIDAYS) {
     this.holidayMap = new Map();
     holidays.forEach(h => this.holidayMap.set(h.date, h.name));
   }
@@ -203,7 +217,73 @@ class HolidayOptimizer {
 
 const optimizer = new HolidayOptimizer();
 
-// 4. UI Rendering Functions
+// 4. Live Date & Holiday Banner
+function updateTodayBanner() {
+  const now = new Date();
+  const todayStr = formatDate(now);
+  
+  // Format Today Label
+  const options = { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' };
+  const dateLabel = document.getElementById('bannerTodayDate');
+  if (dateLabel) dateLabel.textContent = now.toLocaleDateString('en-US', options);
+
+  // Today's Status
+  const dayOfWeek = now.getDay();
+  const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+  const isHoliday = optimizer.holidayMap.has(todayStr);
+  const isLeave = State.bookedLeaves.includes(todayStr);
+
+  const statusChip = document.getElementById('bannerTodayStatus');
+  const statusText = document.getElementById('bannerTodayStatusText');
+
+  if (statusChip && statusText) {
+    if (isHoliday) {
+      statusChip.querySelector('.status-icon').textContent = '🎉';
+      statusText.textContent = `Today is ${optimizer.holidayMap.get(todayStr)}!`;
+      statusChip.style.borderColor = 'var(--green)';
+      statusChip.style.color = 'var(--green)';
+    } else if (isLeave) {
+      statusChip.querySelector('.status-icon').textContent = '🌴';
+      statusText.textContent = `Today is a Booked Leave!`;
+      statusChip.style.borderColor = 'var(--cyan)';
+      statusChip.style.color = 'var(--cyan)';
+    } else if (isWeekend) {
+      statusChip.querySelector('.status-icon').textContent = '🛌';
+      statusText.textContent = `Today: Weekend (Day Off)`;
+      statusChip.style.borderColor = 'var(--purple)';
+      statusChip.style.color = 'var(--purple)';
+    } else {
+      statusChip.querySelector('.status-icon').textContent = '💼';
+      statusText.textContent = `Today: Working Day`;
+      statusChip.style.borderColor = 'var(--cyan)';
+      statusChip.style.color = 'var(--cyan)';
+    }
+  }
+
+  // Next Public Holiday Countdown
+  const upcomingHolidays = ALL_PUBLIC_HOLIDAYS
+    .filter(h => h.date >= todayStr)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const nextNameEl = document.getElementById('bannerNextHolidayName');
+  const nextCountEl = document.getElementById('bannerNextHolidayCountdown');
+  const nextDateEl = document.getElementById('bannerNextHolidayDate');
+
+  if (upcomingHolidays.length > 0 && nextNameEl && nextCountEl && nextDateEl) {
+    const nextH = upcomingHolidays[0];
+    const nextHDate = parseDate(nextH.date);
+    const diffTime = nextHDate - new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let countTxt = `in ${diffDays} days`;
+    if (diffDays === 0) countTxt = "Today! 🎉";
+    else if (diffDays === 1) countTxt = "Tomorrow! 🚀";
+
+    nextNameEl.textContent = `🎉 ${nextH.name}`;
+    nextCountEl.textContent = countTxt;
+    nextDateEl.textContent = nextHDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+}
 
 function updateLeaveHeader() {
   const used = State.bookedLeaves.length;
@@ -220,12 +300,18 @@ function getEfficiencyBadge(eff) {
   return { label: '🤔 OKAY', color: 'var(--text-muted)' };
 }
 
+// 5. Quick Hacks (Calculated from TODAY onwards for 12 months!)
 function renderQuickHacks() {
   const container = document.getElementById('quickHacksList');
   container.innerHTML = '';
 
-  const start = new Date(2026, 0, 1);
-  const end = new Date(2026, 11, 31);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = new Date(today);
+  const end = new Date(today);
+  end.setFullYear(end.getFullYear() + 1); // 1 full year ahead from today!
+
   const allHacks = optimizer.findBestStrategies(start, end, 3, State.bookedLeaves);
 
   const filtered = State.currentBudgetFilter === 'all' 
@@ -297,14 +383,14 @@ function renderQuickHacks() {
 
   // Attach event listeners to buttons inside cards
   container.querySelectorAll('.btn-book-hack').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       const hack = JSON.parse(btn.getAttribute('data-hack'));
       bookHackLeaves(hack);
     });
   });
 
   container.querySelectorAll('.btn-save-plan').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       const hack = JSON.parse(btn.getAttribute('data-hack'));
       saveHolidayPlan(hack);
     });
@@ -328,6 +414,7 @@ function bookHackLeaves(hack) {
     renderCalendar();
     renderMyLeaves();
     updateStats();
+    updateTodayBanner();
   } else {
     showToast(`These leaves are already booked!`);
   }
@@ -351,7 +438,7 @@ function saveHolidayPlan(hack) {
   renderMyLeaves();
 }
 
-// 5. Calendar Rendering
+// 6. Calendar Rendering (Current Month by default, with TODAY cell marker)
 function renderCalendar() {
   const monthYearLabel = document.getElementById('currentMonthYearLabel');
   const daysGrid = document.getElementById('calendarDaysGrid');
@@ -369,6 +456,7 @@ function renderCalendar() {
 
   const bookedSet = new Set(State.bookedLeaves);
   const holidayMap = optimizer.holidayMap;
+  const todayDate = new Date();
 
   // Render padding cells for previous month
   for (let i = 0; i < startDayOfWeek; i++) {
@@ -385,9 +473,14 @@ function renderCalendar() {
     const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
     const isHoliday = holidayMap.has(dateStr);
     const isLeave = bookedSet.has(dateStr);
+    const isToday = currentDayDate.toDateString() === todayDate.toDateString();
 
     const cell = document.createElement('div');
     cell.className = 'cal-day-cell';
+
+    if (isToday) {
+      cell.classList.add('is-today');
+    }
 
     let labelText = '';
     if (isLeave) {
@@ -427,6 +520,7 @@ function renderCalendar() {
         renderQuickHacks();
         renderMyLeaves();
         updateStats();
+        updateTodayBanner();
       }
     });
 
@@ -434,13 +528,20 @@ function renderCalendar() {
   }
 }
 
-// 6. Range Explorer
+// 7. Range Explorer
 function setupExplorer() {
   const slider = document.getElementById('rangeMaxLeaves');
   const sliderVal = document.getElementById('maxLeavesDisplay');
   slider.addEventListener('input', (e) => {
     sliderVal.textContent = e.target.value;
   });
+
+  // Default explorer to TODAY and 6 months ahead!
+  const today = new Date();
+  const future = new Date(today);
+  future.setMonth(future.getMonth() + 6);
+  document.getElementById('rangeStartDate').value = formatDate(today);
+  document.getElementById('rangeEndDate').value = formatDate(future);
 
   document.getElementById('runExplorerBtn').addEventListener('click', () => {
     const startStr = document.getElementById('rangeStartDate').value;
@@ -506,9 +607,8 @@ function setupExplorer() {
   });
 }
 
-// 7. My Leaves & Plans View
+// 8. My Leaves & Plans View
 function renderMyLeaves() {
-  // 1. Booked Leaves List
   const leavesContainer = document.getElementById('bookedLeavesList');
   document.getElementById('bookedCountBadge').textContent = State.bookedLeaves.length;
   leavesContainer.innerHTML = '';
@@ -536,13 +636,13 @@ function renderMyLeaves() {
         renderQuickHacks();
         renderMyLeaves();
         updateStats();
+        updateTodayBanner();
         showToast('Leave cancelled.');
       });
       leavesContainer.appendChild(row);
     });
   }
 
-  // 2. Saved Plans List
   const plansContainer = document.getElementById('savedPlansList');
   document.getElementById('savedPlansCountBadge').textContent = State.savedPlans.length;
   plansContainer.innerHTML = '';
@@ -575,7 +675,7 @@ function renderMyLeaves() {
   }
 }
 
-// 8. Uselessness & Productivity Stats
+// 9. Uselessness & Productivity Stats
 function updateStats() {
   const usedLeaves = State.bookedLeaves.length;
   const workAvoidance = Math.min(100, Math.round((usedLeaves / State.totalLeaves) * 100));
@@ -603,7 +703,7 @@ function updateStats() {
   document.getElementById('hackerHumorQuote').textContent = `"${randomQuote}"`;
 }
 
-// 9. Toast Notification
+// 10. Toast Notification
 function showToast(msg) {
   const toast = document.getElementById('toastNotification');
   toast.textContent = msg;
@@ -611,7 +711,7 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// 10. Navigation Tab Switcher
+// 11. Navigation Tab Switcher
 function setupTabs() {
   const allTabs = document.querySelectorAll('.nav-tab, .mobile-tab');
   allTabs.forEach(tab => {
@@ -635,7 +735,7 @@ function setupTabs() {
   });
 }
 
-// 11. PWA Installation Setup
+// 12. PWA Installation Setup
 function setupPWAInstall() {
   const installBtn = document.getElementById('installAppBtn');
 
@@ -655,21 +755,20 @@ function setupPWAInstall() {
       State.deferredInstallPrompt = null;
       installBtn.style.display = 'none';
     } else {
-      // Fallback for iOS or already installed
       showToast('Tap Share then "Add to Home Screen" to install on iOS!');
     }
   });
 
-  // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('Service Worker registered successfully!', reg))
+      .then(reg => console.log('Service Worker registered!', reg))
       .catch(err => console.error('Service Worker registration failed:', err));
   }
 }
 
-// 12. Initialize App
+// 13. Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+  updateTodayBanner();
   updateLeaveHeader();
   setupTabs();
   renderQuickHacks();
@@ -699,7 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCalendar();
   });
   document.getElementById('todayBtn').addEventListener('click', () => {
-    State.currentMonth = new Date(2026, 0, 1);
+    State.currentMonth = new Date();
     renderCalendar();
   });
 
@@ -715,13 +814,14 @@ document.addEventListener('DOMContentLoaded', () => {
       renderQuickHacks();
       renderMyLeaves();
       updateStats();
+      updateTodayBanner();
       showToast('Reset to defaults.');
     }
   });
 
   // Add manual leave date prompt
   document.getElementById('addManualLeaveBtn').addEventListener('click', () => {
-    const inputDate = prompt('Enter leave date (YYYY-MM-DD):', '2026-05-15');
+    const inputDate = prompt('Enter leave date (YYYY-MM-DD):', formatDate(new Date()));
     if (inputDate && /^\d{4}-\d{2}-\d{2}$/.test(inputDate)) {
       if (!State.bookedLeaves.includes(inputDate)) {
         State.bookedLeaves.push(inputDate);
@@ -731,6 +831,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderQuickHacks();
         renderMyLeaves();
         updateStats();
+        updateTodayBanner();
         showToast(`Booked leave on ${formatPrettyDate(inputDate)}`);
       } else {
         showToast('Date is already booked!');
